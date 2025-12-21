@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import dotenv from "dotenv";
+import connectDB from "./config/db.js";
 
 dotenv.config();
 
@@ -15,6 +16,9 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
+
+// Connect to MongoDB
+connectDB();
 
 // Middleware
 app.use(express.json());
