@@ -3,11 +3,15 @@ import cors from "cors";
 import path from "path";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
+import { fileURLToPath } from "url";
 
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -27,6 +31,7 @@ connectDB();
 
 // Middleware
 app.use(express.json());
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
 app.use("/api/auth", authRoutes);
