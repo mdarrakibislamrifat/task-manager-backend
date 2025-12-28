@@ -53,16 +53,19 @@ const exportTasksReport = async (req, res) => {
 
 const exportUsersReport = async (req, res) => {
   try {
+    // 1. Get all users first so everyone appears in the report
     const users = await User.find().select("name email _id").lean();
-
     const userTasks = await Task.find().populate(
       "assignedTo",
       "name email _id",
     );
 
     const userTaskMap = {};
-    userTasks.forEach((user) => {
-      userTaskMap[user._id] = {
+
+    // 2. Initialize the map using the USERS list
+    users.forEach((user) => {
+      // Use .toString() to ensure the ID key is a string for reliable matching
+      userTaskMap[user._id.toString()] = {
         name: user.name,
         email: user.email,
         taskCount: 0,
@@ -72,17 +75,22 @@ const exportUsersReport = async (req, res) => {
       };
     });
 
+    // 3. Process tasks and increment counts for assigned users
     userTasks.forEach((task) => {
-      if (task.assignedTo) {
+      if (task.assignedTo && Array.isArray(task.assignedTo)) {
         task.assignedTo.forEach((assignedUser) => {
-          if (userTaskMap[assignedUser._id]) {
-            userTaskMap[assignedUser._id].taskCount += 1;
+          const userIdStr = assignedUser._id.toString();
+
+          if (userTaskMap[userIdStr]) {
+            userTaskMap[userIdStr].taskCount += 1;
+
+            // Match the status exactly as defined in your system
             if (task.status === "Pending") {
-              userTaskMap[assignedUser._id].pendingTasks += 1;
+              userTaskMap[userIdStr].pendingTasks += 1;
             } else if (task.status === "In Progress") {
-              userTaskMap[assignedUser._id].inProgressTasks += 1;
+              userTaskMap[userIdStr].inProgressTasks += 1;
             } else if (task.status === "Completed") {
-              userTaskMap[assignedUser._id].completedTasks += 1;
+              userTaskMap[userIdStr].completedTasks += 1;
             }
           }
         });
@@ -94,15 +102,16 @@ const exportUsersReport = async (req, res) => {
 
     worksheet.columns = [
       { header: "User Name", key: "name", width: 30 },
-      { header: " Email", key: "email", width: 40 },
+      { header: "Email", key: "email", width: 40 },
       { header: "Total Assigned Tasks", key: "taskCount", width: 20 },
       { header: "Pending Tasks", key: "pendingTasks", width: 20 },
       { header: "In Progress Tasks", key: "inProgressTasks", width: 20 },
       { header: "Completed Tasks", key: "completedTasks", width: 20 },
     ];
 
-    Object.keys(userTaskMap).forEach((user) => {
-      worksheet.addRow(user);
+    // 4. Object.values gives us the actual data objects to add to rows
+    Object.values(userTaskMap).forEach((userData) => {
+      worksheet.addRow(userData);
     });
 
     res.setHeader(
@@ -111,13 +120,13 @@ const exportUsersReport = async (req, res) => {
     );
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=" + "users_report.xlsx",
+      "attachment; filename=users_report.xlsx",
     );
 
-    return workbook.xlsx.write(res).then(() => {
-      res.status(200).end();
-    });
+    await workbook.xlsx.write(res);
+    res.status(200).end();
   } catch (error) {
+    console.error("Export Error:", error);
     res
       .status(500)
       .json({ message: "Error exporting users report", error: error.message });
