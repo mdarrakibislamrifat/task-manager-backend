@@ -1,4 +1,6 @@
 import express from "express";
+import axios from "axios";
+import FormData from "form-data";
 import {
   getUserProfile,
   loginUser,
@@ -15,14 +17,37 @@ router.post("/login", loginUser);
 router.get("/profile", protect, getUserProfile);
 router.put("/profile", protect, updateUserProfile);
 
-router.post("/upload-image", upload.single("image"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: "No file uploaded" });
+// --- Updated Upload Route ---
+router.post("/upload-image", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    // ১. ImgBB-te image pathanor jonno FormData toiri
+    const formData = new FormData();
+    // memory buffer-ke base64-e convert kora
+    formData.append("image", req.file.buffer.toString("base64"));
+
+    // ২. ImgBB API-te POST request pathano
+    const response = await axios.post(
+      `https://api.imgbb.com/1/upload?key=${process.env.IMGBB_API_KEY}`,
+      formData,
+      {
+        headers: { ...formData.getHeaders() },
+      },
+    );
+
+    // ৩. ImgBB theke pawa permanent URL frontend-e pathano
+    if (response.data.success) {
+      res.status(200).json({ imageUrl: response.data.data.url });
+    } else {
+      res.status(500).json({ message: "ImgBB upload failed" });
+    }
+  } catch (error) {
+    console.error("Upload error:", error.message);
+    res.status(500).json({ message: "Internal Server Error during upload" });
   }
-  const imageUrl = `${req.protocol}://${req.get("host")}/uploads/${
-    req.file.filename
-  }`;
-  res.status(200).json({ imageUrl });
 });
 
 export default router;
