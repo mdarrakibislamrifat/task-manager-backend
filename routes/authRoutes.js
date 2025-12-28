@@ -20,35 +20,27 @@ router.put("/profile", protect, updateUserProfile);
 // --- Updated Upload Route for ImgBB ---
 router.post("/upload-image", upload.single("image"), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded" });
+    // ১. প্রথমেই চেক করুন req.file আছে কিনা
+    if (!req.file || !req.file.buffer) {
+      console.log("File not found in request!");
+      return res
+        .status(400)
+        .json({ message: "No file uploaded or file is empty" });
     }
 
-    // ১. ImgBB API-te pathanor jonno FormData toiri
     const formData = new FormData();
-    // memory buffer-ke base64 string-e convert kora ImgBB API-r jonno
+    // buffer চেক করার পর toString কল করা
     formData.append("image", req.file.buffer.toString("base64"));
 
-    // ২. ImgBB-te POST request pathano (Environment Variable use kore)
     const response = await axios.post(
       `https://api.imgbb.com/1/upload?key=${process.env.IMGBB_API_KEY}`,
       formData,
-      {
-        headers: { ...formData.getHeaders() },
-      },
+      { headers: { ...formData.getHeaders() } },
     );
 
-    // ৩. ImgBB theke pawa permanent URL frontend-e pathano
-    if (response.data.success) {
-      res.status(200).json({ imageUrl: response.data.data.url });
-    } else {
-      res.status(500).json({ message: "ImgBB upload failed" });
-    }
+    res.status(200).json({ imageUrl: response.data.data.url });
   } catch (error) {
-    console.error(
-      "Upload error details:",
-      error.response?.data || error.message,
-    );
+    console.error("Upload error details:", error.message);
     res.status(500).json({ message: "Internal Server Error during upload" });
   }
 });
